@@ -1,0 +1,3 @@
+refresh:
+  name: Refresh Custom Repositories
+  description: Triggers HACS to refresh downloaded custom repositories and processes the update queue immediately.

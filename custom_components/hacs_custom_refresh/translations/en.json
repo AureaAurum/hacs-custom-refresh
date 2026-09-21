@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HACS Custom Refresh",
+        "description": "Do you want to set up HACS Custom Refresh?"
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Only a single instance of HACS Custom Refresh is allowed."
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh Custom Repositories",
+      "description": "Triggers HACS to refresh downloaded custom repositories and processes the update queue immediately."
+    }
+  }
+}

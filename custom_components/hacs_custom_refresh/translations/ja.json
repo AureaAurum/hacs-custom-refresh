@@ -1,0 +1,19 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HACS Custom Refresh",
+        "description": "HACS Custom Refresh を設定しますか？"
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "HACS Custom Refresh は1つのインスタンスのみ設定できます。"
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "カスタムリポジトリの再取得",
+      "description": "HACS のダウンロード済みカスタムリポジトリの更新情報を再取得し、キューを即時処理します。"
+    }
+  }
+}

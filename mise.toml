@@ -1,0 +1,15 @@
+[tools]
+python = "3.12.13"
+uv = "0.12.17"
+
+[tasks.test]
+description = "Run tests"
+run = "uv run --group dev pytest"
+
+[tasks.lint]
+description = "Run linter"
+run = "uv run --group dev ruff check ."
+
+[tasks.format]
+description = "Check formatting"
+run = "uv run --group dev ruff format --check ."
