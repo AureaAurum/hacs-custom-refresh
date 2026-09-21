@@ -1,16 +1,12 @@
 {
   "domain": "hacs_custom_refresh",
   "name": "HACS Custom Refresh",
-  "after_dependencies": [
-    "hacs"
-  ],
-  "codeowners": [
-    "@AureaAurum"
-  ],
+  "after_dependencies": ["hacs"],
+  "codeowners": ["@AureaAurum"],
   "config_flow": true,
   "documentation": "https://github.com/AureaAurum/hacs-custom-refresh",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/AureaAurum/hacs-custom-refresh/issues",
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
