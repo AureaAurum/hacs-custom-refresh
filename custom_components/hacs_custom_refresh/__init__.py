@@ -47,32 +47,35 @@ async def async_refresh_custom_repositories(hass: HomeAssistant, lock: asyncio.L
         try:
             await hacs.async_update_downloaded_custom_repositories()
 
-            # Process queue to execute update tasks immediately
+            # Process queue to execute update tasks immediately and wait for completion
             queue = getattr(hacs, "queue", None)
-            if queue is not None and getattr(queue, "has_pending_tasks", False):
+            if queue is not None:
                 timeout_seconds = 120
                 start_time = asyncio.get_running_loop().time()
-                while getattr(queue, "has_pending_tasks", False) and not getattr(
-                    system, "disabled", False
+                while getattr(queue, "has_pending_tasks", False) or getattr(
+                    queue, "running", False
                 ):
+                    if getattr(system, "disabled", False):
+                        reason = getattr(system, "disabled_reason", "unknown")
+                        raise HomeAssistantError(
+                            f"HACS was disabled during refresh (reason: {reason})."
+                        )
+
                     if asyncio.get_running_loop().time() - start_time > timeout_seconds:
-                        LOGGER.warning("Timeout waiting for HACS queue to drain")
-                        break
+                        raise HomeAssistantError(
+                            "HACS custom repository refresh was queued but did not complete "
+                            "within 120 seconds."
+                        )
 
                     if not getattr(queue, "running", False):
                         await hacs.async_process_queue()
 
-                    if getattr(queue, "has_pending_tasks", False):
+                    if getattr(queue, "has_pending_tasks", False) or getattr(
+                        queue, "running", False
+                    ):
                         await asyncio.sleep(0.5)
-            elif queue is None:
+            else:
                 await hacs.async_process_queue()
-
-            # Ensure all category coordinators update their listeners
-            coordinators = getattr(hacs, "coordinators", {})
-            if isinstance(coordinators, dict):
-                for coordinator in coordinators.values():
-                    if hasattr(coordinator, "async_update_listeners"):
-                        coordinator.async_update_listeners()
 
             # Brief pause to allow any scheduled events to settle
             await asyncio.sleep(0)

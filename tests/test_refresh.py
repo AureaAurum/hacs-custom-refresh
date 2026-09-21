@@ -55,9 +55,6 @@ class MockHacs:
         self.queue = MockHacsQueue(pending_tasks=pending_queue_tasks)
         self.async_update_downloaded_custom_repositories = AsyncMock()
         self.async_process_queue = AsyncMock(side_effect=self._mock_process_queue)
-        mock_coordinator = MagicMock()
-        mock_coordinator.async_update_listeners = MagicMock()
-        self.coordinators = {"integration": mock_coordinator}
 
     async def _mock_process_queue(self):
         self.queue.drain()
@@ -98,7 +95,6 @@ async def test_refresh_success(mock_hass, caplog):
     hacs.async_update_downloaded_custom_repositories.assert_awaited_once()
     hacs.async_process_queue.assert_awaited_once()
     assert not hacs.queue.has_pending_tasks
-    hacs.coordinators["integration"].async_update_listeners.assert_called_once()
 
     assert "HACS custom repository refresh started" in caplog.text
     assert "HACS custom repository refresh completed" in caplog.text
@@ -211,6 +207,52 @@ async def test_refresh_queue_already_running_by_hacs(mock_hass):
 
     await async_refresh_custom_repositories(mock_hass, lock)
     assert not hacs.queue.has_pending_tasks
+
+
+@pytest.mark.asyncio
+async def test_refresh_queue_timeout(mock_hass, monkeypatch):
+    """Test timeout error when queue fails to complete within 120 seconds."""
+    hacs = MockHacs(pending_queue_tasks=2)
+    # Mock process_queue to not drain the queue (stuck queue)
+    hacs.async_process_queue = AsyncMock()
+    mock_hass.data[HACS_DOMAIN] = hacs
+    lock = asyncio.Lock()
+
+    # Fast forward loop time after 1 call
+    call_count = 0
+    real_time = asyncio.get_running_loop().time
+
+    def fake_time():
+        nonlocal call_count
+        call_count += 1
+        return real_time() + (130.0 if call_count > 1 else 0.0)
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "time", fake_time)
+
+    with pytest.raises(
+        HomeAssistantError,
+        match="HACS custom repository refresh was queued but did not complete within 120 seconds",
+    ):
+        await async_refresh_custom_repositories(mock_hass, lock)
+
+
+@pytest.mark.asyncio
+async def test_refresh_disabled_during_queue(mock_hass):
+    """Test error when HACS gets disabled (e.g. rate limit) during queue processing."""
+    hacs = MockHacs(pending_queue_tasks=2)
+
+    async def mock_disable_during_queue():
+        hacs.system.disabled = True
+        hacs.system.disabled_reason = "rate_limit"
+
+    hacs.async_process_queue = AsyncMock(side_effect=mock_disable_during_queue)
+    mock_hass.data[HACS_DOMAIN] = hacs
+    lock = asyncio.Lock()
+
+    with pytest.raises(
+        HomeAssistantError, match=r"HACS was disabled during refresh \(reason: rate_limit\)"
+    ):
+        await async_refresh_custom_repositories(mock_hass, lock)
 
 
 @pytest.mark.asyncio
