@@ -50,17 +50,31 @@ async def async_refresh_custom_repositories(hass: HomeAssistant, lock: asyncio.L
             # Process queue to execute update tasks immediately
             queue = getattr(hacs, "queue", None)
             if queue is not None and getattr(queue, "has_pending_tasks", False):
+                timeout_seconds = 120
+                start_time = asyncio.get_running_loop().time()
                 while getattr(queue, "has_pending_tasks", False) and not getattr(
                     system, "disabled", False
                 ):
+                    if asyncio.get_running_loop().time() - start_time > timeout_seconds:
+                        LOGGER.warning("Timeout waiting for HACS queue to drain")
+                        break
+
                     if not getattr(queue, "running", False):
                         await hacs.async_process_queue()
-                    else:
+
+                    if getattr(queue, "has_pending_tasks", False):
                         await asyncio.sleep(0.5)
             elif queue is None:
                 await hacs.async_process_queue()
 
-            # Brief pause to allow any scheduled coordinator listeners to settle
+            # Ensure all category coordinators update their listeners
+            coordinators = getattr(hacs, "coordinators", {})
+            if isinstance(coordinators, dict):
+                for coordinator in coordinators.values():
+                    if hasattr(coordinator, "async_update_listeners"):
+                        coordinator.async_update_listeners()
+
+            # Brief pause to allow any scheduled events to settle
             await asyncio.sleep(0)
 
         except HomeAssistantError:

@@ -55,6 +55,9 @@ class MockHacs:
         self.queue = MockHacsQueue(pending_tasks=pending_queue_tasks)
         self.async_update_downloaded_custom_repositories = AsyncMock()
         self.async_process_queue = AsyncMock(side_effect=self._mock_process_queue)
+        mock_coordinator = MagicMock()
+        mock_coordinator.async_update_listeners = MagicMock()
+        self.coordinators = {"integration": mock_coordinator}
 
     async def _mock_process_queue(self):
         self.queue.drain()
@@ -95,6 +98,7 @@ async def test_refresh_success(mock_hass, caplog):
     hacs.async_update_downloaded_custom_repositories.assert_awaited_once()
     hacs.async_process_queue.assert_awaited_once()
     assert not hacs.queue.has_pending_tasks
+    hacs.coordinators["integration"].async_update_listeners.assert_called_once()
 
     assert "HACS custom repository refresh started" in caplog.text
     assert "HACS custom repository refresh completed" in caplog.text
@@ -186,6 +190,27 @@ async def test_refresh_concurrency_lock(mock_hass):
     await asyncio.gather(task1, task2)
 
     assert call_order == ["start_slow", "end_slow", "start_slow", "end_slow"]
+
+
+@pytest.mark.asyncio
+async def test_refresh_queue_already_running_by_hacs(mock_hass):
+    """Test behavior when HACS queue is already marked as running."""
+    hacs = MockHacs(pending_queue_tasks=2)
+    # Simulate HACS background queue processor is currently running
+    hacs.queue.running = True
+    mock_hass.data[HACS_DOMAIN] = hacs
+    lock = asyncio.Lock()
+
+    async def simulate_hacs_background_completion():
+        await asyncio.sleep(0.05)
+        # HACS finishes running its batch and drains the queue
+        hacs.queue.drain()
+        hacs.queue.running = False
+
+    asyncio.create_task(simulate_hacs_background_completion())
+
+    await async_refresh_custom_repositories(mock_hass, lock)
+    assert not hacs.queue.has_pending_tasks
 
 
 @pytest.mark.asyncio
