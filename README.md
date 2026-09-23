@@ -115,6 +115,7 @@ mode: single
 ## 開発とテスト
 
 本プロジェクトのテストおよびコード規約チェックは Forgejo Actions (pytest, ruff) で自動実行されます。
+ローカルでの確認には `uv run pytest` および `uv run ruff check .` を利用できます。
 
 ## ライセンス
 
